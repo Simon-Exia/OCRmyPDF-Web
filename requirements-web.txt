@@ -1,0 +1,3 @@
+# Requirements for the Flask web interface
+Flask>=2.3.0
+Werkzeug>=2.3.0

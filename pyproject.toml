@@ -63,6 +63,7 @@ test = [
 ]
 watcher = ["watchdog>=1.0.2", "typer-slim[standard]", "python-dotenv"]
 webservice = ["streamlit>=1.41.0"]
+flask_web = ["Flask>=2.3.0", "Werkzeug>=2.3.0"]
 
 [project.scripts]
 ocrmypdf = "ocrmypdf.__main__:run"

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCRmyPDF Web Interface</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .upload-area {
+            border: 2px dashed #007cba;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .upload-area:hover {
+            background-color: #f0f8ff;
+        }
+        .upload-area.drag-over {
+            background-color: #e6f3ff;
+            border-color: #0056b3;
+        }
+        .file-input {
+            display: none;
+        }
+        .upload-button {
+            background-color: #007cba;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        .upload-button:hover {
+            background-color: #0056b3;
+        }
+        .options {
+            margin: 20px 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .option-group {
+            margin-bottom: 15px;
+        }
+        .option-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .option-group select, .option-group input[type="number"] {
+            width: 200px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .checkbox-group input[type="checkbox"] {
+            margin-right: 8px;
+        }
+        .submit-button {
+            background-color: #28a745;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .submit-button:hover {
+            background-color: #218838;
+        }
+        .submit-button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .progress {
+            display: none;
+            margin-top: 20px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #007cba;
+            width: 0%;
+            transition: width 0.3s;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+        .file-info {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>OCRmyPDF Web Interface</h1>
+        <p style="text-align: center; color: #666;">
+            Upload a PDF or image file to add OCR text layer
+        </p>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form id="upload-form" action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
+            <div class="upload-area" id="upload-area">
+                <div id="upload-text">
+                    <p><strong>Click to select file or drag and drop</strong></p>
+                    <p>Supported formats: PDF, PNG, JPG, TIFF, BMP, GIF</p>
+                    <p>Maximum file size: 100MB</p>
+                </div>
+                <input type="file" name="file" id="file-input" class="file-input" accept=".pdf,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.gif" required>
+            </div>
+            
+            <div class="file-info" id="file-info">
+                <strong>Selected file:</strong> <span id="file-name"></span>
+            </div>
+
+            <div class="options">
+                <h3>OCR Options</h3>
+                
+                <div class="option-group">
+                    <label for="language">Language:</label>
+                    <select name="language" id="language">
+                        <option value="eng">English</option>
+                        <option value="deu">German</option>
+                        <option value="fra">French</option>
+                        <option value="spa">Spanish</option>
+                        <option value="swe">Swedish</option>
+                        <option value="ita">Italian</option>
+                        <option value="por">Portuguese</option>
+                        <option value="rus">Russian</option>
+                        <option value="chi_sim">Chinese (Simplified)</option>
+                        <option value="jpn">Japanese</option>
+                    </select>
+                </div>
+
+                <div class="option-group">
+                    <label for="optimize">Optimization Level:</label>
+                    <select name="optimize" id="optimize">
+                        <option value="0">None (fastest)</option>
+                        <option value="1" selected>Basic optimization</option>
+                        <option value="2">Aggressive optimization</option>
+                        <option value="3">Maximum optimization (slowest)</option>
+                    </select>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" name="force_ocr" id="force_ocr">
+                    <label for="force_ocr">Force OCR on all pages (even if text already exists)</label>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" name="deskew" id="deskew">
+                    <label for="deskew">Deskew pages</label>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" name="clean" id="clean">
+                    <label for="clean">Clean pages before OCR</label>
+                </div>
+            </div>
+
+            <button type="submit" class="submit-button" id="submit-button">
+                Process with OCR
+            </button>
+            
+            <div class="progress" id="progress">
+                <p>Processing your file... This may take a few minutes.</p>
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const fileInfo = document.getElementById('file-info');
+        const fileName = document.getElementById('file-name');
+        const form = document.getElementById('upload-form');
+        const submitButton = document.getElementById('submit-button');
+        const progress = document.getElementById('progress');
+
+        // Click to upload
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('drag-over');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                showFileInfo(files[0]);
+            }
+        });
+
+        // File selection
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                showFileInfo(e.target.files[0]);
+            }
+        });
+
+        function showFileInfo(file) {
+            fileName.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
+            fileInfo.style.display = 'block';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Form submission
+        form.addEventListener('submit', (e) => {
+            if (!fileInput.files.length) {
+                e.preventDefault();
+                alert('Please select a file first.');
+                return;
+            }
+            
+            submitButton.disabled = true;
+            submitButton.textContent = 'Processing...';
+            progress.style.display = 'block';
+        });
+    </script>
+</body>
+</html>
