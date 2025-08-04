@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCR Processing Complete - OCRmyPDF Web Interface</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .success-message {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .file-results {
+            margin-bottom: 30px;
+        }
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+        .file-info {
+            flex-grow: 1;
+        }
+        .file-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .file-size {
+            color: #666;
+            font-size: 14px;
+        }
+        .download-button {
+            background-color: #007cba;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .download-button:hover {
+            background-color: #0056b3;
+        }
+        .download-all {
+            background-color: #28a745;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            margin-bottom: 20px;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+        .download-all:hover {
+            background-color: #218838;
+        }
+        .process-more {
+            background-color: #6c757d;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+        .process-more:hover {
+            background-color: #5a6268;
+        }
+        .stats {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>OCR Processing Complete!</h1>
+        
+        <div class="success-message">
+            <strong>Success!</strong> All files have been processed with OCR.
+        </div>
+        
+        <div class="stats">
+            <strong>{{ processed_files|length }}</strong> file(s) processed successfully
+        </div>
+        
+        {% if processed_files|length > 1 %}
+        <a href="{{ url_for('download_all', file_ids=file_ids) }}" class="download-all">
+            Download All Files (ZIP)
+        </a>
+        {% endif %}
+        
+        <div class="file-results">
+            {% for file_info in processed_files %}
+            <div class="file-item">
+                <div class="file-info">
+                    <div class="file-name">{{ file_info.original_name }}</div>
+                    <div class="file-size">{{ file_info.size }}</div>
+                </div>
+                <a href="{{ url_for('download_file', filename=file_info.output_file) }}" class="download-button">
+                    Download
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <a href="{{ url_for('index') }}" class="process-more">
+            Process More Files
+        </a>
+    </div>
+</body>
+</html>

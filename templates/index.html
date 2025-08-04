@@ -114,6 +114,7 @@
         .progress {
             display: none;
             margin-top: 20px;
+            text-align: center;
         }
         .progress-bar {
             width: 100%;
@@ -121,13 +122,26 @@
             background-color: #e9ecef;
             border-radius: 10px;
             overflow: hidden;
+            margin: 10px 0;
         }
         .progress-fill {
             height: 100%;
             background-color: #007cba;
-            width: 100%;
+            width: 0%;
             transition: width 0.3s;
-            animation: pulse 1.5s ease-in-out infinite;
+        }
+        #progress-text {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        #current-file {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        #progress-percentage {
+            font-weight: bold;
+            margin-top: 5px;
         }
         @keyframes pulse {
             0% { opacity: 0.6; }
@@ -141,6 +155,16 @@
             border: 1px solid #c3e6cb;
             border-radius: 4px;
             display: none;
+        }
+        #file-list {
+            margin-top: 5px;
+        }
+        .file-item {
+            padding: 5px 0;
+            border-bottom: 1px solid #c3e6cb;
+        }
+        .file-item:last-child {
+            border-bottom: none;
         }
     </style>
 </head>
@@ -162,15 +186,17 @@
         <form id="upload-form" action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
             <div class="upload-area" id="upload-area">
                 <div id="upload-text">
-                    <p><strong>Click to select file or drag and drop</strong></p>
+                    <p><strong>Click to select files or drag and drop</strong></p>
                     <p>Supported formats: PDF, PNG, JPG, TIFF, BMP, GIF</p>
-                    <p>Maximum file size: 100MB</p>
+                    <p>Maximum file size: 100MB per file</p>
+                    <p>Select multiple files to batch process</p>
                 </div>
-                <input type="file" name="file" id="file-input" class="file-input" accept=".pdf,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.gif" required>
+                <input type="file" name="file" id="file-input" class="file-input" accept=".pdf,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.gif" multiple required>
             </div>
             
             <div class="file-info" id="file-info">
-                <strong>Selected file:</strong> <span id="file-name"></span>
+                <strong>Selected files:</strong>
+                <div id="file-list"></div>
             </div>
 
             <div class="options">
@@ -219,14 +245,16 @@
             </div>
 
             <button type="submit" class="submit-button" id="submit-button">
-                Process with OCR
+                Process files with OCR
             </button>
             
             <div class="progress" id="progress">
-                <p>Processing your file... This may take a few minutes.</p>
+                <div id="progress-text">Processing files...</div>
+                <div id="current-file"></div>
                 <div class="progress-bar">
-                    <div class="progress-fill"></div>
+                    <div class="progress-fill" id="progress-fill"></div>
                 </div>
+                <div id="progress-percentage">0%</div>
             </div>
         </form>
     </div>
@@ -235,10 +263,16 @@
         const uploadArea = document.getElementById('upload-area');
         const fileInput = document.getElementById('file-input');
         const fileInfo = document.getElementById('file-info');
-        const fileName = document.getElementById('file-name');
+        const fileList = document.getElementById('file-list');
         const form = document.getElementById('upload-form');
         const submitButton = document.getElementById('submit-button');
         const progress = document.getElementById('progress');
+        const progressFill = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+        const currentFileText = document.getElementById('current-file');
+        const progressPercentage = document.getElementById('progress-percentage');
+
+        let selectedFiles = [];
 
         // Click to upload
         uploadArea.addEventListener('click', () => {
@@ -259,22 +293,36 @@
             e.preventDefault();
             uploadArea.classList.remove('drag-over');
             
-            const files = e.dataTransfer.files;
+            const files = Array.from(e.dataTransfer.files);
             if (files.length > 0) {
-                fileInput.files = files;
-                showFileInfo(files[0]);
+                selectedFiles = files;
+                // Update file input to match
+                const dt = new DataTransfer();
+                files.forEach(file => dt.items.add(file));
+                fileInput.files = dt.files;
+                showFileInfo();
             }
         });
 
         // File selection
         fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                showFileInfo(e.target.files[0]);
-            }
+            selectedFiles = Array.from(e.target.files);
+            showFileInfo();
         });
 
-        function showFileInfo(file) {
-            fileName.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
+        function showFileInfo() {
+            if (selectedFiles.length === 0) {
+                fileInfo.style.display = 'none';
+                return;
+            }
+
+            fileList.innerHTML = '';
+            selectedFiles.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.textContent = `${index + 1}. ${file.name} (${formatFileSize(file.size)})`;
+                fileList.appendChild(fileItem);
+            });
             fileInfo.style.display = 'block';
         }
 
@@ -287,17 +335,80 @@
         }
 
         // Form submission
-        form.addEventListener('submit', (e) => {
-            if (!fileInput.files.length) {
-                e.preventDefault();
-                alert('Please select a file first.');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (selectedFiles.length === 0) {
+                alert('Please select at least one file first.');
                 return;
             }
             
             submitButton.disabled = true;
             submitButton.textContent = 'Processing...';
             progress.style.display = 'block';
+            
+            const processedFiles = [];
+            
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                const progressPercent = Math.round((i / selectedFiles.length) * 100);
+                
+                progressFill.style.width = progressPercent + '%';
+                progressPercentage.textContent = progressPercent + '%';
+                currentFileText.textContent = `Processing: ${file.name}`;
+                
+                try {
+                    const result = await processFile(file);
+                    processedFiles.push(result);
+                } catch (error) {
+                    console.error('Error processing file:', file.name, error);
+                    // Continue with other files
+                }
+            }
+            
+            // Complete
+            progressFill.style.width = '100%';
+            progressPercentage.textContent = '100%';
+            currentFileText.textContent = 'Processing complete!';
+            
+            // Redirect to results page
+            if (processedFiles.length > 0) {
+                const fileIds = processedFiles.map(f => f.file_id).join(',');
+                window.location.href = `/results?files=${fileIds}`;
+            } else {
+                alert('No files were processed successfully.');
+                submitButton.disabled = false;
+                submitButton.textContent = 'Process Files with OCR';
+                progress.style.display = 'none';
+            }
         });
+        
+        async function processFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('language', document.getElementById('language').value);
+            formData.append('optimize', document.getElementById('optimize').value);
+            if (document.getElementById('force_ocr').checked) {
+                formData.append('force_ocr', 'on');
+            }
+            if (document.getElementById('deskew').checked) {
+                formData.append('deskew', 'on');
+            }
+            if (document.getElementById('clean').checked) {
+                formData.append('clean', 'on');
+            }
+            
+            const response = await fetch('/api/process', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            return await response.json();
+        }
     </script>
 </body>
 </html>
