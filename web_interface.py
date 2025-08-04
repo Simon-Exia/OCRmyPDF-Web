@@ -85,10 +85,20 @@ def upload_file():
             # Clean up input file
             input_path.unlink()
             
-            # Return success page with download link
-            return render_template('success.html', 
-                                 output_file=output_path.name,
-                                 original_filename=filename)
+            # Get file size for display
+            file_size = output_path.stat().st_size
+            
+            # Redirect to results page with single file
+            file_info = {
+                'file_id': file_id,
+                'output_file': output_path.name,
+                'original_name': filename,
+                'size': format_file_size(file_size)
+            }
+            
+            return render_template('results.html', 
+                                 processed_files=[file_info],
+                                 file_ids=file_id)
             
         except Exception as e:
             # Clean up files on error
