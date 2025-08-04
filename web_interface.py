@@ -85,6 +85,7 @@ def upload_file():
         force_ocr = 'force_ocr' in request.form
         deskew = 'deskew' in request.form
         clean = 'clean' in request.form
+        regular_pdf = 'regular_pdf' in request.form
         optimize = int(request.form.get('optimize', '1'))
         
         try:
@@ -98,6 +99,7 @@ def upload_file():
                 clean=clean,
                 optimize=optimize,
                 skip_text=False if force_ocr else None,
+                output_type='pdf' if regular_pdf else 'pdfa',
                 progress_bar=False
             )
             
@@ -179,6 +181,7 @@ def api_process():
     force_ocr = 'force_ocr' in request.form
     deskew = 'deskew' in request.form
     clean = 'clean' in request.form
+    regular_pdf = 'regular_pdf' in request.form
     optimize = int(request.form.get('optimize', '1'))
     
     try:
@@ -192,6 +195,7 @@ def api_process():
             clean=clean,
             optimize=optimize,
             skip_text=False if force_ocr else None,
+            output_type='pdf' if regular_pdf else 'pdfa',
             progress_bar=False
         )
         

@@ -242,6 +242,11 @@
                     <input type="checkbox" name="clean" id="clean">
                     <label for="clean">Clean pages before OCR</label>
                 </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" name="regular_pdf" id="regular_pdf">
+                    <label for="regular_pdf">Output regular PDF (instead of PDF/A)</label>
+                </div>
             </div>
 
             <button type="submit" class="submit-button" id="submit-button">
@@ -396,6 +401,9 @@
             }
             if (document.getElementById('clean').checked) {
                 formData.append('clean', 'on');
+            }
+            if (document.getElementById('regular_pdf').checked) {
+                formData.append('regular_pdf', 'on');
             }
             
             const response = await fetch('/api/process', {
