@@ -14,6 +14,7 @@
 # Dev scratch
 *.ipynb
 **/*.pyc
+__pycache__/
 /*.pdf
 /*.qdf
 /*.png
