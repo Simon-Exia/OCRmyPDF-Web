@@ -373,8 +373,8 @@
             
             // Redirect to results page
             if (processedFiles.length > 0) {
-                const fileIds = processedFiles.map(f => f.file_id).join(',');
-                window.location.href = `/results?files=${fileIds}`;
+                const filenames = processedFiles.map(f => f.output_file).join(',');
+                window.location.href = `/results?files=${filenames}`;
             } else {
                 alert('No files were processed successfully.');
                 submitButton.disabled = false;

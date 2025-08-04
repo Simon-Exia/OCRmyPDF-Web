@@ -125,7 +125,7 @@
         </div>
         
         {% if processed_files|length > 1 %}
-        <a href="{{ url_for('download_all', file_ids=file_ids) }}" class="download-all">
+        <a href="{{ url_for('download_all', filenames=file_ids) }}" class="download-all">
             Download All Files (ZIP)
         </a>
         {% endif %}
@@ -134,7 +134,7 @@
             {% for file_info in processed_files %}
             <div class="file-item">
                 <div class="file-info">
-                    <div class="file-name">{{ file_info.original_name }}</div>
+                    <div class="file-name">{{ file_info.output_file }}</div>
                     <div class="file-size">{{ file_info.size }}</div>
                 </div>
                 <a href="{{ url_for('download_file', filename=file_info.output_file) }}" class="download-button">

@@ -30,6 +30,22 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def generate_output_filename(original_filename, upload_folder):
+    """Generate output filename based on input, always with _ocr suffix."""
+    # Remove extension and add _ocr.pdf
+    base_name = Path(original_filename).stem
+    output_name = f"{base_name}_ocr.pdf"
+    output_path = Path(upload_folder) / output_name
+    
+    # If that exists, add a number
+    counter = 2
+    while output_path.exists():
+        output_name = f"{base_name}_ocr_{counter}.pdf"
+        output_path = Path(upload_folder) / output_name
+        counter += 1
+    
+    return output_name
+
 @app.route('/')
 def index():
     """Main page with upload form."""
@@ -52,11 +68,14 @@ def upload_file():
         return redirect(url_for('index'))
     
     if file:
-        # Generate unique filename
-        file_id = str(uuid.uuid4())
+        # Generate unique filename for temporary input file to prevent conflicts
+        temp_id = str(uuid.uuid4())
         filename = secure_filename(file.filename)
-        input_path = Path(app.config['UPLOAD_FOLDER']) / f"{file_id}_input_{filename}"
-        output_path = Path(app.config['UPLOAD_FOLDER']) / f"{file_id}_output.pdf"
+        input_path = Path(app.config['UPLOAD_FOLDER']) / f"{temp_id}_input_{filename}"
+        
+        # Generate output filename based on input name
+        output_filename = generate_output_filename(filename, app.config['UPLOAD_FOLDER'])
+        output_path = Path(app.config['UPLOAD_FOLDER']) / output_filename
         
         # Save uploaded file
         file.save(input_path)
@@ -90,15 +109,14 @@ def upload_file():
             
             # Redirect to results page with single file
             file_info = {
-                'file_id': file_id,
-                'output_file': output_path.name,
+                'output_file': output_filename,
                 'original_name': filename,
                 'size': format_file_size(file_size)
             }
             
             return render_template('results.html', 
                                  processed_files=[file_info],
-                                 file_ids=file_id)
+                                 file_ids=output_filename)
             
         except Exception as e:
             # Clean up files on error
@@ -124,7 +142,7 @@ def download_file(filename):
         return send_file(
             file_path,
             as_attachment=True,
-            download_name=f"ocr_{filename}",
+            download_name=filename,
             mimetype='application/pdf'
         )
     finally:
@@ -144,11 +162,14 @@ def api_process():
     if not allowed_file(file.filename):
         return jsonify({'error': 'Invalid file type'}), 400
     
-    # Generate unique filename
-    file_id = str(uuid.uuid4())
+    # Generate unique filename for temporary input file to prevent conflicts
+    temp_id = str(uuid.uuid4())
     filename = secure_filename(file.filename)
-    input_path = Path(app.config['UPLOAD_FOLDER']) / f"{file_id}_input_{filename}"
-    output_path = Path(app.config['UPLOAD_FOLDER']) / f"{file_id}_output.pdf"
+    input_path = Path(app.config['UPLOAD_FOLDER']) / f"{temp_id}_input_{filename}"
+    
+    # Generate output filename based on input name
+    output_filename = generate_output_filename(filename, app.config['UPLOAD_FOLDER'])
+    output_path = Path(app.config['UPLOAD_FOLDER']) / output_filename
     
     # Save uploaded file
     file.save(input_path)
@@ -182,11 +203,10 @@ def api_process():
         
         return jsonify({
             'success': True,
-            'file_id': file_id,
-            'output_file': output_path.name,
+            'output_file': output_filename,
             'original_name': filename,
             'size': format_file_size(file_size),
-            'download_url': url_for('download_file', filename=output_path.name)
+            'download_url': url_for('download_file', filename=output_filename)
         })
         
     except Exception as e:
@@ -213,24 +233,30 @@ def format_file_size(bytes):
 @app.route('/results')
 def results():
     """Display results page with download links for multiple files."""
-    file_ids = request.args.get('files', '').split(',')
-    file_ids = [fid.strip() for fid in file_ids if fid.strip()]
+    filenames = request.args.get('files', '').split(',')
+    filenames = [fname.strip() for fname in filenames if fname.strip()]
     
-    if not file_ids:
+    if not filenames:
         flash('No files found', 'error')
         return redirect(url_for('index'))
     
     processed_files = []
-    for file_id in file_ids:
-        # Find the output file for this ID
-        output_files = list(Path(app.config['UPLOAD_FOLDER']).glob(f"{file_id}_output.pdf"))
-        if output_files:
-            output_file = output_files[0]
-            file_size = output_file.stat().st_size
+    for filename in filenames:
+        file_path = Path(app.config['UPLOAD_FOLDER']) / filename
+        if file_path.exists():
+            file_size = file_path.stat().st_size
+            # Clean up display name by removing _ocr suffix and numbers
+            display_name = filename
+            if filename.endswith('_ocr.pdf'):
+                display_name = filename.replace('_ocr.pdf', '.pdf')
+            elif '_ocr_' in filename and filename.endswith('.pdf'):
+                # Handle _ocr_2.pdf, _ocr_3.pdf, etc.
+                base_part = filename.split('_ocr_')[0]
+                display_name = f"{base_part}.pdf"
+            
             processed_files.append({
-                'file_id': file_id,
-                'output_file': output_file.name,
-                'original_name': f"processed_{file_id}.pdf",
+                'output_file': filename,
+                'original_name': display_name,
                 'size': format_file_size(file_size)
             })
     
@@ -240,15 +266,15 @@ def results():
     
     return render_template('results.html', 
                          processed_files=processed_files,
-                         file_ids=','.join(file_ids))
+                         file_ids=','.join(filenames))
 
-@app.route('/download_all/<file_ids>')
-def download_all(file_ids):
+@app.route('/download_all/<filenames>')
+def download_all(filenames):
     """Download all processed files as a ZIP archive."""
-    file_id_list = file_ids.split(',')
-    file_id_list = [fid.strip() for fid in file_id_list if fid.strip()]
+    filename_list = filenames.split(',')
+    filename_list = [fname.strip() for fname in filename_list if fname.strip()]
     
-    if not file_id_list:
+    if not filename_list:
         flash('No files specified', 'error')
         return redirect(url_for('index'))
     
@@ -257,11 +283,12 @@ def download_all(file_ids):
     
     try:
         with zipfile.ZipFile(zip_path, 'w') as zip_file:
-            for file_id in file_id_list:
-                output_files = list(Path(app.config['UPLOAD_FOLDER']).glob(f"{file_id}_output.pdf"))
-                if output_files:
-                    output_file = output_files[0]
-                    zip_file.write(output_file, f"ocr_{file_id}.pdf")
+            for filename in filename_list:
+                filename = filename.strip()
+                if filename:
+                    file_path = Path(app.config['UPLOAD_FOLDER']) / filename
+                    if file_path.exists():
+                        zip_file.write(file_path, filename)
         
         return send_file(
             zip_path,
